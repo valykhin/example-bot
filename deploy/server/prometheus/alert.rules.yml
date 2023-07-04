@@ -1,0 +1,11 @@
+groups:
+- name: alert.rules
+  rules:
+  - alert: CoreIsDown
+    expr: sum(engine_daemon_container_states_containers{state="running", job="core"}) < 6
+    for: 10m
+    labels:
+      severity: "critical"
+    annotations:
+      summary: "Core down"
+      description: "Core instance has been down for more than 10 minutes"

@@ -1,0 +1,19 @@
+# English translations for bot package.
+# This file is put in the public domain.
+# Automatically generated, 2022.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: bot \n"
+"Report-Msgid-Bugs-To: ivalykhin@gmail.com\n"
+"POT-Creation-Date: 2023-05-28 20:29+0700\n"
+"PO-Revision-Date: 2022-12-25 11:15+0600\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+

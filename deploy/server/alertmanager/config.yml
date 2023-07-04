@@ -1,0 +1,15 @@
+route:
+  receiver: 'mail'
+  repeat_interval: 2h
+  group_by: [ alertname ]
+
+
+receivers:
+  - name: 'mail'
+    email_configs:
+      - smarthost: 'smtp.mail.ru:465'
+        auth_username: 'alerts@example.com'
+        auth_password: "test"
+        from: 'alerts@example.com'
+        to: 'alerts@example.com'
+        require_tls: false

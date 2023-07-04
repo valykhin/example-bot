@@ -1,0 +1,161 @@
+version: "3.8"
+volumes:
+  rsa-dir:
+secrets:
+  bot-token:
+    file: ../secrets/BOT_TOKEN
+  payment-provider-token:
+    file: ../secrets/PAYMENT_PROVIDER_TOKEN
+  basic-auth-core:
+    file: ../secrets/BASIC_AUTH_CORE_PASSWORD
+  basic-auth-prometheus:
+    file: ../secrets/BASIC_AUTH_PROMETHEUS_PASSWORD
+  basic-auth-client:
+    file: ../secrets/BASIC_AUTH_CLIENT_PASSWORD
+services:
+  core-db-migration:
+    image: ghcr.io/valykhin/example-bot/core:0.0.1
+    environment:
+      FLASK_DEBUG: ${DEBUG}
+      DOCKER_DEFAULT_PLATFORM: linux/amd64
+      DATABASE_URL: ${DATABASE_URL:-postgresql://core:vp.pwd.4.core@db:5432/core}
+    command: ["pipenv", "run", "flask", "db", "upgrade"]
+    volumes:
+      - ${HOME}/example-bot/logging.conf /app/
+    depends_on:
+      - db
+  core:
+    image: ghcr.io/valykhin/example-bot/core:0.0.1
+    ports:
+      - "8000:5000"
+    environment:
+      FLASK_DEBUG: ${DEBUG}
+      DEBUG_METRICS: ${DEBUG}
+      FLASK_RUN_HOST: 0.0.0.0
+      DOCKER_DEFAULT_PLATFORM: linux/amd64
+      DATABASE_URL: ${DATABASE_URL:-postgresql://core:vp.pwd.4.core@db:5432/core}
+      SSH_ID_FILE: /run/secrets/ssh
+      PROMETHEUS_CLIENT_HOST: http://prometheus:9090
+    volumes:
+      - ${HOME}/example-bot/logging.conf /app/
+    secrets:
+      - basic-auth-core
+      - basic-auth-prometheus
+      - basic-auth-client
+    restart: always
+    depends_on:
+      - core-db-migration
+  bot:
+    image: ghcr.io/valykhin/example-bot/bot:0.0.1
+    secrets:
+      - bot-token
+      - payment-provider-token
+      - basic-auth-core
+    environment:
+      VPN_BOT_TOKEN_FILE: /run/secrets/bot-token
+      PAYMENT_PROVIDER_TOKEN_FILE: /run/secrets/payment-provider-token
+      CORE_API_URL: http://core:5000/api
+      LOGGER_CONFIGURATION_FILE:
+    volumes:
+      - ${HOME}/example-bot/bot/logging.conf /application/
+    restart: always
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    container_name: node_exporter
+    command:
+      - '--path.rootfs=/host'
+    network_mode: host
+    pid: host
+    ports:
+      - "9100:9100"
+    restart: always
+    volumes:
+      - '/:/host:ro,rslave'
+  prometheus:
+    image: prom/prometheus:v2.40.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/${PROMETHEUS_CONFIG:-prometheus.yml}:/etc/prometheus/prometheus.yml
+      - ./prometheus/${ALERTS_CONFIG:-alert.rules.yml}:/etc/prometheus/alert.rules.yml
+    restart: always
+  alertmanager:
+    image: prom/alertmanager:v0.25.0
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager/:/etc/alertmanager/
+    restart: always
+    command:
+      - "--config.file=/etc/alertmanager/config.yml"
+    expose:
+      - 9093
+  grafana:
+    image: grafana/grafana:8.5.15
+    volumes:
+      - ./grafana/config.ini:/etc/grafana/grafana.ini
+      - ./grafana/datasource.yaml:/etc/grafana/provisioning/datasources/default.yaml
+      - ./grafana/dashboard.yaml:/etc/grafana/provisioning/dashboards/default.yaml
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: very_difficult_value
+    restart: always
+    depends_on:
+      - prometheus
+  db:
+    image: docker.io/library/postgres:15.0
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: core
+      POSTGRES_USER: core
+      POSTGRES_PASSWORD: vp.pwd.4.core
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+    volumes:
+      - ../db/init:/docker-entrypoint-initdb.d
+      - .:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U core -d core" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=50"
+      - "-c"
+      - "shared_buffers=1GB"
+      - "-c"
+      - "effective_cache_size=4GB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "maintenance_work_mem=512MB"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "temp_file_limit=10GB"
+      - "-c"
+      - "log_min_duration_statement=200ms"
+      - "-c"
+      - "idle_in_transaction_session_timeout=10s"
+      - "-c"
+      - "lock_timeout=1s"
+      - "-c"
+      - "statement_timeout=60s"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "pg_stat_statements.max=10000"
+      - "-c"
+      - "pg_stat_statements.track=all"
+
