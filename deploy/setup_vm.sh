@@ -28,16 +28,4 @@ echo "Check secrets"
 pip3 install yq
 cd server
 cat ../server/docker-compose.yml | yq '.secrets | .[].file' | xargs ls -la
-cd ../client
-cat ../client/docker-compose.yml | yq '.secrets | .[].file' | xargs ls -la
 cd ..
-
-echo "Check mounting dirs"
-mkdir -p ~/openvpn/pki/
-mkdir -p ~/openvpn/keys/
-
-echo "Try to migrate pki if exists"
-if ls -la ~/openvpn/server/pki/*; then
-  mkdir -p ~/openvpn/pki/server/pki/ && cp -r ~/openvpn/server/pki/* ~/openvpn/pki/server/pki/;
-  else echo "No pki dir to migrate";
-fi
